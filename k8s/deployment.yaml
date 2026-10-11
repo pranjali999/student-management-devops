@@ -24,7 +24,7 @@ spec:
       containers:
         - name: sms-app
           # CI replaces this tag with the commit SHA (kubectl set image ...)
-          image: student-management:local
+          image: ghcr.io/pranjali999/student-management-devops:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
