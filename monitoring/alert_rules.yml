@@ -1,0 +1,31 @@
+groups:
+  - name: student-management-alerts
+    rules:
+      - alert: AppDown
+        expr: up{job="student-management"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Student Management app is down"
+          description: "Prometheus could not scrape {{ $labels.instance }} for 30 seconds."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(sms_http_requests_total{status=~"5.."}[1m]))
+            / sum(rate(sms_http_requests_total[1m])) > 0.05
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 5% of requests are failing with 5xx"
+
+      - alert: HighLatency
+        expr: |
+          sum(rate(sms_http_request_duration_seconds_sum[1m]))
+            / sum(rate(sms_http_request_duration_seconds_count[1m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Average request latency is above 500 ms"

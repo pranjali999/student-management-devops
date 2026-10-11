@@ -1,0 +1,35 @@
+{
+  "title": "Student Management System",
+  "uid": "sms-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Students stored",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "sms_students_total", "refId": "A" }]
+    },
+    {
+      "id": 2, "type": "stat", "title": "App uptime (s)",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "sms_uptime_seconds", "refId": "A" }]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Requests per second",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "targets": [{ "expr": "sum by (endpoint) (rate(sms_http_requests_total[1m]))", "legendFormat": "{{endpoint}}", "refId": "A" }]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "5xx error ratio",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "targets": [{ "expr": "sum(rate(sms_http_requests_total{status=~\"5..\"}[1m])) / sum(rate(sms_http_requests_total[1m]))", "refId": "A" }]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Average latency (s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "targets": [{ "expr": "sum(rate(sms_http_request_duration_seconds_sum[1m])) / sum(rate(sms_http_request_duration_seconds_count[1m]))", "refId": "A" }]
+    }
+  ]
+}

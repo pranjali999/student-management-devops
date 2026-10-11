@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Management System</title>
+<style>
+  :root { --bg:#f5f7fb; --card:#fff; --ink:#1d2433; --muted:#6b7280; --accent:#2563eb; --danger:#dc2626; --line:#e5e7eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1420; --card:#171d2c; --ink:#e8ecf5; --muted:#9aa4b8; --accent:#60a5fa; --danger:#f87171; --line:#2a3246; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:20px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  header h1 { margin:0; font-size:1.25rem; }
+  .badge { font-size:.75rem; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:3px 10px; }
+  main { max-width:960px; margin:0 auto; padding:0 16px 40px; display:grid; gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  form { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
+  input { padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--ink); font:inherit; }
+  button { padding:9px 14px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button.link { background:none; color:var(--danger); padding:4px 8px; }
+  button.edit { background:none; color:var(--accent); padding:4px 8px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:9px 8px; border-bottom:1px solid var(--line); font-size:.92rem; }
+  th { color:var(--muted); font-weight:600; }
+  .toolbar { display:flex; gap:10px; margin-bottom:10px; }
+  .toolbar input { flex:1; }
+  #msg { min-height:1.2em; font-size:.9rem; color:var(--danger); }
+  .table-wrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Student Management System</h1>
+  <span class="badge">version {{ version }} &middot; <a href="/metrics" style="color:inherit">metrics</a> &middot; <a href="/health" style="color:inherit">health</a></span>
+</header>
+<main>
+  <section class="card">
+    <form id="form">
+      <input id="name" placeholder="Full name" required>
+      <input id="email" type="email" placeholder="Email" required>
+      <input id="course" placeholder="Course" required>
+      <input id="year" type="number" min="1" max="6" placeholder="Year (1-6)" required>
+      <button id="submit" type="submit">Add student</button>
+    </form>
+    <div id="msg"></div>
+  </section>
+  <section class="card">
+    <div class="toolbar"><input id="search" placeholder="Search name, email or course..."></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Course</th><th>Year</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let editingId = null;
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+async function load() {
+  const q = encodeURIComponent($('search').value.trim());
+  const res = await fetch('/api/students' + (q ? '?q=' + q : ''));
+  const data = await res.json();
+  $('rows').innerHTML = data.map(s => `
+    <tr>
+      <td>${s.id}</td><td>${esc(s.name)}</td><td>${esc(s.email)}</td><td>${esc(s.course)}</td><td>${s.year}</td>
+      <td>
+        <button class="edit" onclick='startEdit(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
+        <button class="link" onclick="del(${s.id})">Delete</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6">No students yet.</td></tr>';
+}
+
+function startEdit(s) {
+  editingId = s.id;
+  $('name').value = s.name; $('email').value = s.email; $('course').value = s.course; $('year').value = s.year;
+  $('submit').textContent = 'Save changes';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function del(id) {
+  if (!confirm('Delete student #' + id + '?')) return;
+  await fetch('/api/students/' + id, { method: 'DELETE' });
+  load();
+}
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('msg').textContent = '';
+  const body = JSON.stringify({ name: $('name').value, email: $('email').value, course: $('course').value, year: $('year').value });
+  const url = editingId ? '/api/students/' + editingId : '/api/students';
+  const res = await fetch(url, { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body });
+  if (!res.ok) {
+    const err = await res.json();
+    $('msg').textContent = (err.errors || ['Something went wrong']).join(', ');
+    return;
+  }
+  editingId = null; $('submit').textContent = 'Add student'; e.target.reset(); load();
+});
+
+$('search').addEventListener('input', load);
+load();
+</script>
+</body>
+</html>

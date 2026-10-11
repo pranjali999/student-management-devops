@@ -1,0 +1,43 @@
+# Rendered by Ansible - do not edit by hand on the server
+services:
+  app:
+    image: {{ image }}
+    environment:
+      DATABASE_URL: postgresql://sms:sms_password@db:5432/sms
+    ports: ["5000:5000"]
+    depends_on:
+      db: { condition: service_healthy }
+    restart: always
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sms
+      POSTGRES_PASSWORD: sms_password
+      POSTGRES_DB: sms
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sms -d sms"]
+      interval: 5s
+      retries: 10
+    restart: always
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+    ports: ["9090:9090"]
+    restart: always
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports: ["3000:3000"]
+    restart: always
+
+volumes:
+  pgdata:

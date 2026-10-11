@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sms-db-secret
+  namespace: student-mgmt
+type: Opaque
+stringData:
+  POSTGRES_USER: sms
+  POSTGRES_PASSWORD: sms_password   # demo only - use a real secret manager in production
+  POSTGRES_DB: sms
+  DATABASE_URL: postgresql://sms:sms_password@sms-db:5432/sms
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sms-db
+  namespace: student-mgmt
+spec:
+  serviceName: sms-db
+  replicas: 1
+  selector:
+    matchLabels: { app: sms-db }
+  template:
+    metadata:
+      labels: { app: sms-db }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef: { name: sms-db-secret }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "sms", "-d", "sms"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-db
+  namespace: student-mgmt
+spec:
+  clusterIP: None
+  selector: { app: sms-db }
+  ports:
+    - port: 5432

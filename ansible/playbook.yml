@@ -1,0 +1,69 @@
+---
+# Configures a fresh Ubuntu server and deploys the whole stack (app + Postgres + Prometheus + Grafana).
+# Run:  ansible-playbook playbook.yml -e image=ghcr.io/YOUR_USER/student-management-devops:latest
+- name: Deploy Student Management System
+  hosts: app_servers
+  become: true
+  vars:
+    image: "ghcr.io/YOUR_GITHUB_USER/student-management-devops:latest"
+    project_dir: /opt/student-management
+
+  tasks:
+    - name: Install Docker and Compose plugin
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+          - rsync
+        state: present
+        update_cache: true
+
+    - name: Ensure Docker is running and enabled on boot
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create project directory
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy monitoring configuration
+      ansible.posix.synchronize:
+        src: "{{ playbook_dir }}/../monitoring/"
+        dest: "{{ project_dir }}/monitoring/"
+        delete: true
+
+    - name: Render production docker-compose file
+      ansible.builtin.template:
+        src: docker-compose.prod.yml.j2
+        dest: "{{ project_dir }}/docker-compose.yml"
+        mode: "0644"
+      notify: Restart stack
+
+    - name: Pull images and start the stack
+      ansible.builtin.command:
+        cmd: docker compose up -d --pull always
+        chdir: "{{ project_dir }}"
+      changed_when: true
+
+    - name: Wait until the app reports healthy
+      ansible.builtin.uri:
+        url: "http://localhost:5000/health"
+        status_code: 200
+      register: health
+      retries: 20
+      delay: 3
+      until: health.status == 200
+
+    - name: Show deployed version
+      ansible.builtin.debug:
+        msg: "Deployed: {{ health.json }}"
+
+  handlers:
+    - name: Restart stack
+      ansible.builtin.command:
+        cmd: docker compose up -d --force-recreate
+        chdir: "{{ project_dir }}"
